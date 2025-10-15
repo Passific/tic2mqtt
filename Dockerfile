@@ -2,13 +2,14 @@
 
 
 # ---- Build stage ----
-FROM alpine:3.19 AS build
+FROM alpine AS build
 
 # Install build tools and dependencies
 RUN apk add --no-cache cmake g++ make git openssl-dev boost-dev
 
 # Install Paho MQTT C++
-RUN apk add --no-cache paho-mqtt-c-dev paho-mqtt-cpp-dev
+RUN apk add --no-cache paho-mqtt-c-dev
+# paho-mqtt-cpp-dev
 
 
 WORKDIR /app
@@ -18,7 +19,7 @@ RUN mkdir -p build && cd build && \
     cmake --build .
 
 # Minimal runtime image
-FROM alpine:3.19
+FROM alpine
 
 # OCI labels
 LABEL org.opencontainers.image.title="tic2mqtt"
