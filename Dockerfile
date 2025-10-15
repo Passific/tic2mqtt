@@ -14,10 +14,10 @@ RUN apk add --no-cache paho-mqtt-c-dev git cmake g++ make openssl-dev
 WORKDIR /tmp
 RUN git clone --depth 1 --branch v1.2.0 https://github.com/eclipse/paho.mqtt.cpp.git \
     && cd paho.mqtt.cpp \
-    && cmake -Bbuild -H. -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=ON -DPAHO_WITH_SSL=ON \
-    && make -C build -j$(nproc) \
-    && make -C build install \
-    && ldconfig
+    && cmake -Bbuild -H. -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=ON -DPAHO_WITH_SSL=ON
+RUN make -C build -j$(nproc)
+RUN make -C build install
+RUN ldconfig
 
 
 WORKDIR /app
