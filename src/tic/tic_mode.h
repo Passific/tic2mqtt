@@ -6,30 +6,81 @@
 #include <vector>
 #include <utility>
 
-namespace mqtt {
-    class async_client;
-}
-
-
+/**
+ * @brief Abstract base class for TIC mode implementations (historique/standard).
+ *        Provides label set, Home Assistant helpers, and meter ID tracking.
+ */
 class TicMode {
 public:
-    virtual ~TicMode() = default;
-    virtual const std::set<std::string>& labels() const = 0;
-    // Meter ID handling
-    void set_meter_id(const std::string& id) { meter_id_ = id; }
-    const std::string& get_meter_id() const { return meter_id_; }
-    // Topic construction
-    virtual std::string get_mqtt_topic(const std::string& label) const {
-        if (!meter_id_.empty())
-            return std::string(MQTT_TOPIC_BASE) + meter_id_ + "/" + sanitize_label(label) + "/state";
-        else
-            return std::string(MQTT_TOPIC_BASE) + sanitize_label(label) + "/state";
-    }
-    virtual void publish_ha_discovery(mqtt::async_client& client, const std::string& label) const;
-    virtual std::vector<std::pair<std::string, std::string>> get_all_discovery_messages() const { return {}; }
-    virtual const char* get_ha_device_class(const std::string& label) const { return nullptr; }
-    virtual const char* get_ha_state_class(const std::string& label) const { return nullptr; }
-    virtual const char* get_ha_unit(const std::string& label) const { return nullptr; }
+	/**
+	* @brief Virtual destructor.
+	*/
+	virtual ~TicMode() = default;
+
+	/**
+	* @brief Get the set of all supported labels for this TIC mode.
+	* @return Reference to the set of label strings.
+	*/
+	virtual const std::set<std::string>& labels() const = 0;
+
+	/**
+	* @brief Set the meter ID (ADCO/ADSC) for topic construction.
+	* @param id The meter ID string.
+	*/
+	void set_meter_id(const std::string& id) { meter_id_ = id; }
+
+	/**
+	* @brief Get the current meter ID.
+	* @return Reference to the meter ID string.
+	*/
+	const std::string& get_meter_id() const { return meter_id_; }
+
+	/**
+	* @brief Handle a parsed label/value pair (for meter ID tracking, etc.).
+	* @param label The parsed label.
+	* @param value The parsed value.
+	*/
+	virtual void handle_label_value(const std::string&, const std::string&) = 0;
+
+	/**
+	* @brief Construct the MQTT topic for a given label, using meter ID.
+	* @param label The label to use in the topic.
+	* @return Topic string, or empty if meter ID is not set.
+	*/
+	virtual std::string get_mqtt_topic(const std::string& label) const {
+		if (!meter_id_.empty()) {
+			return std::string(MQTT_TOPIC_BASE) + meter_id_ + "/" + sanitize_label(label) + "/state";
+		} else {
+			return "";
+		}
+	}
+
+	/**
+	* @brief Get all Home Assistant discovery messages (topic, payload) for all labels.
+	* @return Vector of (topic, payload) pairs.
+	*/
+	virtual std::vector<std::pair<std::string, std::string>> get_all_discovery_messages() const;
+
+	/**
+	* @brief Get the Home Assistant device class for a label.
+	* @param label The label to check.
+	* @return Device class string or nullptr if not applicable.
+	*/
+	virtual const char* get_ha_device_class(const std::string& label) const { return nullptr; }
+
+	/**
+	* @brief Get the Home Assistant state class for a label.
+	* @param label The label to check.
+	* @return State class string or nullptr if not applicable.
+	*/
+	virtual const char* get_ha_state_class(const std::string& label) const { return nullptr; }
+
+	/**
+	* @brief Get the Home Assistant unit for a label.
+	* @param label The label to check.
+	* @return Unit string or nullptr if not applicable.
+	*/
+	virtual const char* get_ha_unit(const std::string& label) const { return nullptr; }
 protected:
-    std::string meter_id_;
+	std::string meter_id_;
 };
