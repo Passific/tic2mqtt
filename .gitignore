@@ -1,0 +1,49 @@
+# Build artifacts
+/build/
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+*.dylib
+*.cmake
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CMakeCache.txt
+
+# IDE/editor files
+.vscode/
+*.code-workspace
+*.sublime*
+*.swp
+*.user
+*.suo
+*.ncb
+*.vcxproj*
+*.DS_Store
+
+# Logs
+*.log
+
+# Docker
+*.pid
+*.pid.lock
+
+# Misc
+*.pyc
+__pycache__/
+*.ipynb_checkpoints
+
+# Ignore environment files
+.env
+.env.*
+
+# Ignore core dumps
+core*
+*.core
+
+# Ignore test output
+/test_output/
