@@ -15,11 +15,11 @@ WORKDIR /tmp
 RUN git clone --depth 1 --branch v1.2.0 https://github.com/eclipse/paho.mqtt.cpp.git \
     && cd paho.mqtt.cpp \
     && cmake -Bbuild -H. -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=ON -DPAHO_WITH_SSL=ON
-RUN make -C build -j$(nproc)
-RUN make -C build install
+RUN cd paho.mqtt.cpp && make -C build -j$(nproc)
+RUN cd paho.mqtt.cpp && make -C build install
 RUN ldconfig
 
-
+# Build the tic2mqtt app
 WORKDIR /app
 COPY . /app
 RUN mkdir -p build && cd build && \
