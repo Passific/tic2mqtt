@@ -10,15 +10,16 @@ RUN apk add --no-cache cmake g++ make git openssl-dev
 
 # Install Paho MQTT C (from repo) and build Paho MQTT C++ from source
 RUN apk add --no-cache paho-mqtt-c-dev git cmake g++ make openssl-dev
-# Build and install Paho MQTT C++
-WORKDIR /tmp
-RUN git clone --depth 1 --branch v1.2.0 https://github.com/eclipse/paho.mqtt.cpp.git \
-    && cd paho.mqtt.cpp \
-    && cmake -Bbuild -H. -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=ON -DPAHO_WITH_SSL=ON
-RUN cd paho.mqtt.cpp && make -C build -j$(nproc)
 
-# Install to a custom location to make copying easier
-RUN cd paho.mqtt.cpp && make -C build install DESTDIR=/paho-install
+# Build and install Paho MQTT C++ in /deps
+WORKDIR /deps
+RUN git clone --depth 1 --branch v1.2.0 https://github.com/eclipse/paho.mqtt.cpp.git
+WORKDIR /deps/paho.mqtt.cpp
+RUN cmake -Bbuild -H. -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=ON -DPAHO_WITH_SSL=ON
+RUN make -C build -j$(nproc)
+
+# Install built Paho MQTT C++ library and headers to /usr/local for app build
+RUN make -C build install
 
 
 # Build the tic2mqtt app
@@ -44,9 +45,12 @@ RUN apk add --no-cache libstdc++ openssl
 # Copy built app
 COPY --from=build /app/build/tic2mqtt /tic2mqtt
 
-# Copy Paho MQTT C and C++ libraries
-COPY --from=build /paho-install/usr/local/lib/ /usr/local/lib/
-COPY --from=build /paho-install/usr/local/include/ /usr/local/include/
+# Copy only Paho MQTT C and C++ libraries
+COPY --from=build /usr/local/lib/libpaho-mqtt3* /usr/local/lib/
+COPY --from=build /usr/local/lib/libpaho-mqttpp3* /usr/local/lib/
+# Copy only Paho MQTT C and C++ headers
+COPY --from=build /usr/local/include/paho-mqtt /usr/local/include/paho-mqtt
+COPY --from=build /usr/local/include/paho-mqttpp3 /usr/local/include/paho-mqttpp3
 
 # Set library path for dynamic linker
 ENV LD_LIBRARY_PATH=/usr/local/lib
