@@ -17,8 +17,7 @@ RUN git clone --depth 1 --branch v1.2.0 https://github.com/eclipse/paho.mqtt.cpp
     && cmake -Bbuild -H. -DPAHO_BUILD_STATIC=ON -DPAHO_BUILD_SHARED=ON -DPAHO_WITH_SSL=ON \
     && make -C build -j$(nproc) \
     && make -C build install \
-    && ldconfig \
-    && cd /tmp && rm -rf paho.mqtt.cpp
+    && ldconfig
 
 
 WORKDIR /app
