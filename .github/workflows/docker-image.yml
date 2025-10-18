@@ -75,6 +75,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set Rust version in Cargo.toml
+        if: matrix.version == 'rust'
+        run: |
+          sed -i "s/^version = \".*-ci\"/version = \"${{ steps.get_version.outputs.version }}\"/" rust/Cargo.toml
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
