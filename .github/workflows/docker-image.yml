@@ -1,4 +1,4 @@
-name: Build and Publish Docker Image
+name: Build and Publish Docker Images
 
 on:
   push:
@@ -15,6 +15,16 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        version: ['cpp', 'rust']
+        include:
+          - version: cpp
+            context: .
+            dockerfile: Dockerfile
+          - version: rust
+            context: rust
+            dockerfile: rust/Dockerfile
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,11 +47,27 @@ jobs:
       - name: Determine tags
         id: docker_tags
         run: |
-          TAGS="${{ github.ref_name }}/${{ env.REPO }}:${{ steps.get_version.outputs.version }},${{ github.ref_name }}/${{ env.REPO }}:latest"
-          if [[ "${{ github.event.action }}" == "released" ]]; then
-            TAGS="$TAGS,${{ github.ref_name }}/${{ env.REPO }}:stable"
+          BASE_TAG="${{ matrix.version }}"
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if [[ "${{ github.event.action }}" == "released" || "${{ github.event.action }}" == "prereleased" ]]; then
+            if [[ "${{ matrix.version }}" == "cpp" ]]; then
+              # For C++ version, maintain the original tags for compatibility
+              TAGS="ghcr.io/${{ env.REPO }}:${VERSION},ghcr.io/${{ env.REPO }}:latest"
+              if [[ "${{ github.event.action }}" == "released" ]]; then
+                TAGS="${TAGS},ghcr.io/${{ env.REPO }}:stable"
+              fi
+            else
+              # For Rust version, add -rust suffix
+              TAGS="ghcr.io/${{ env.REPO }}:${VERSION}-rust,ghcr.io/${{ env.REPO }}:latest-rust"
+              if [[ "${{ github.event.action }}" == "released" ]]; then
+                TAGS="${TAGS},ghcr.io/${{ env.REPO }}:stable-rust"
+              fi
+            fi
+          else
+            # For non-release builds
+            TAGS="ghcr.io/${{ env.REPO }}:dev-${{ matrix.version }}"
           fi
-          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -52,11 +78,13 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: ${{ github.event.action == 'released' || github.event.action == 'prereleased' }}
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           tags: ${{ steps.docker_tags.outputs.tags }}
           labels: |
             org.opencontainers.image.version=${{ steps.get_version.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.variant=${{ matrix.version }}
