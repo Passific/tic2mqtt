@@ -40,19 +40,13 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/passific/tic2mqtt"
 
 # Install runtime dependencies
-RUN apk add --no-cache libstdc++ openssl
+RUN apk add --no-cache libstdc++ openssl paho-mqtt-c
 
 # Copy built app
 COPY --from=build /app/build/tic2mqtt /tic2mqtt
 
-# Copy only Paho MQTT C and C++ libraries
-COPY --from=build /usr/local/lib/libpaho-mqtt3* /usr/local/lib/
-COPY --from=build /usr/local/lib/libpaho-mqttpp3* /usr/local/lib/
-# Copy only Paho MQTT C and C++ headers
-COPY --from=build /usr/local/include/paho-mqtt /usr/local/include/paho-mqtt
-COPY --from=build /usr/local/include/paho-mqttpp3 /usr/local/include/mqtt
+# Copy only Paho MQTT C++ libraries
+COPY --from=build /usr/local/lib/libpaho-mqttpp3* /usr/lib/
 
-# Set library path for dynamic linker
-ENV LD_LIBRARY_PATH=/usr/local/lib
 
 CMD ["/tic2mqtt"]
