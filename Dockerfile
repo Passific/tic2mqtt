@@ -50,7 +50,7 @@ COPY --from=build /usr/local/lib/libpaho-mqtt3* /usr/local/lib/
 COPY --from=build /usr/local/lib/libpaho-mqttpp3* /usr/local/lib/
 # Copy only Paho MQTT C and C++ headers
 COPY --from=build /usr/local/include/paho-mqtt /usr/local/include/paho-mqtt
-COPY --from=build /usr/local/include/paho-mqttpp3 /usr/local/include/paho-mqttpp3
+COPY --from=build /usr/local/include/paho-mqttpp3 /usr/local/include/mqtt
 
 # Set library path for dynamic linker
 ENV LD_LIBRARY_PATH=/usr/local/lib
