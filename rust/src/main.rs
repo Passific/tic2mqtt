@@ -1,5 +1,3 @@
-use anyhow::Result;
-use structopt::StructOpt;
 use tokio::sync::mpsc;
 
 mod mqtt;
@@ -11,31 +9,39 @@ use mqtt::MqttPublisher;
 use serial::SerialReader;
 use tic::{TicModeEnum, TicModeHandle};
 
-#[derive(StructOpt, Debug)]
 struct Opt {
-    /// Serial device path. If omitted, stdin is used (for testing).
-    #[structopt(long)]
     serial: Option<String>,
-
-    /// MQTT server (not used by stdout mock)
-    #[structopt(long)]
     mqtt_server: Option<String>,
-
-    /// MQTT username for authentication
-    #[structopt(long)]
     mqtt_user: Option<String>,
-
-    /// MQTT password for authentication
-    #[structopt(long)]
     mqtt_pass: Option<String>,
-
-    /// MQTT client ID. Default from env MQTT_CLIENT_ID or "tic2mqtt_client"
-    #[structopt(long)]
     mqtt_client_id: Option<String>,
-
-    /// TIC mode (standard or historique). Default from env TIC_MODE or standard.
-    #[structopt(long)]
     mode: Option<String>,
+}
+
+fn parse_args() -> Opt {
+    let mut opt = Opt {
+        serial: None,
+        mqtt_server: None,
+        mqtt_user: None,
+        mqtt_pass: None,
+        mqtt_client_id: None,
+        mode: None,
+    };
+    let args: Vec<String> = std::env::args().collect();
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--serial" => { i += 1; if i < args.len() { opt.serial = Some(args[i].clone()); } },
+            "--mqtt_server" => { i += 1; if i < args.len() { opt.mqtt_server = Some(args[i].clone()); } },
+            "--mqtt_user" => { i += 1; if i < args.len() { opt.mqtt_user = Some(args[i].clone()); } },
+            "--mqtt_pass" => { i += 1; if i < args.len() { opt.mqtt_pass = Some(args[i].clone()); } },
+            "--mqtt_client_id" => { i += 1; if i < args.len() { opt.mqtt_client_id = Some(args[i].clone()); } },
+            "--mode" => { i += 1; if i < args.len() { opt.mode = Some(args[i].clone()); } },
+            _ => {},
+        }
+        i += 1;
+    }
+    opt
 }
 
 fn get_tic_mode(opt_mode: Option<String>) -> TicModeEnum {
@@ -56,10 +62,8 @@ fn get_env_or(opt: Option<String>, var: &str, default: &str) -> String {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
-
-    let opt = Opt::from_args();
+async fn main() {
+    let opt = parse_args();
 
     // Get configuration from CLI args or environment
     let mqtt_server = get_env_or(opt.mqtt_server, "MQTT_SERVER", "tcp://localhost:1883");
@@ -75,7 +79,7 @@ async fn main() -> Result<()> {
 
     // Initialize TIC mode
     let tic_mode = TicModeHandle::new(get_tic_mode(opt.mode));
-    let baudrate = tic_mode.inner.lock().unwrap().baudrate();
+    let baudrate = tic_mode.baudrate();
 
     // Start serial reader with configured port
     let mut serial = SerialReader::new(Some(serial_port), line_tx).with_baud(baudrate);
@@ -97,7 +101,7 @@ async fn main() -> Result<()> {
     let shutdown_trigger = shutdown_tx.clone();
     tokio::spawn(async move {
         if let Err(e) = tokio::signal::ctrl_c().await {
-            tracing::error!("failed to listen for ctrl_c: {}", e);
+            eprintln!("failed to listen for ctrl_c: {}", e);
         }
         let _ = shutdown_trigger.send(true);
     });
@@ -114,13 +118,11 @@ async fn main() -> Result<()> {
             let safe_value = utils::sanitize_value(&value);
             let _ = publish_tx.send((label.clone(), safe_value)).await;
         } else {
-            tracing::info!(%line, "invalid line");
+            println!("invalid line: {}", line);
         }
     }
 
     // wait for tasks to finish
     let _ = serial_handle.await;
     let _ = mqtt_handle.await;
-
-    Ok(())
 }

@@ -81,7 +81,7 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event.action == 'released' || github.event.action == 'prereleased' }}
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_tags.outputs.tags }}
           labels: |
             org.opencontainers.image.version=${{ steps.get_version.outputs.version }}

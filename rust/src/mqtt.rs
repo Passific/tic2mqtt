@@ -1,4 +1,3 @@
-use anyhow::Result;
 use rumqttc::{AsyncClient, MqttOptions, QoS, Incoming};
 use tokio::sync::mpsc::Receiver;
 use crate::tic::TicModeHandle;
@@ -21,7 +20,7 @@ impl MqttPublisher {
         MqttPublisher { config, rx, mode }
     }
 
-    pub async fn run(&mut self, shutdown: &mut tokio::sync::watch::Receiver<bool>) -> Result<()> {
+    pub async fn run(&mut self, shutdown: &mut tokio::sync::watch::Receiver<bool>) {
         // Parse server as host:port or tcp://host:port
         // For simplicity assume tcp://host:port
         let server = self.config.server.trim_start_matches("tcp://");
@@ -54,7 +53,7 @@ impl MqttPublisher {
 
             // Combined loop: process events and publishes
             loop {
-                if *shutdown.borrow() { tracing::info!("shutdown signalled, breaking mqtt loop"); break; }
+                if *shutdown.borrow() { println!("shutdown signalled, breaking mqtt loop"); break; }
                 tokio::select! {
                     // process mqtt events
                     event = eventloop.poll() => {
@@ -64,7 +63,7 @@ impl MqttPublisher {
                                     if p.topic == "homeassistant/status" {
                                         if let Ok(payload) = String::from_utf8(p.payload.to_vec()) {
                                             if payload == "online" {
-                                                tracing::info!("HA online, resending discovery");
+                                                println!("HA online, resending discovery");
                                                 // publish discovery messages
                                                 let msgs = self.mode.get_all_discovery_messages();
                                                 for (topic, payload) in msgs {
@@ -87,7 +86,7 @@ impl MqttPublisher {
                             Some((label, value)) => {
                                 let meter = self.mode.get_meter_id();
                                 if meter.is_empty() {
-                                    tracing::info!(%label, "Skipped publish: meter_id not set");
+                                    println!("Skipped publish: meter_id not set for label {}", label);
                                     continue;
                                 }
                                 let topic = self.mode.get_mqtt_topic(&label);
@@ -96,13 +95,13 @@ impl MqttPublisher {
                                     break;
                                 }
                             }
-                            None => { tracing::info!("publisher channel closed"); break; }
+                            None => { println!("publisher channel closed"); break; }
                         }
                     }
                 }
             }
 
-            if *shutdown.borrow() { tracing::info!("shutdown signalled, exiting mqtt outer loop"); break Ok(()); }
+            if *shutdown.borrow() { println!("shutdown signalled, exiting mqtt outer loop"); break; }
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
         }
     }

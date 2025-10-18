@@ -1,7 +1,5 @@
-
 use std::sync::{Arc, Mutex};
 use crate::utils::{MQTT_TOPIC_BASE, sanitize_label};
-use serde_json::json;
 
 pub mod standard;
 pub mod historique;
@@ -18,6 +16,9 @@ pub struct TicModeHandle {
 }
 
 impl TicModeHandle {
+    pub fn baudrate(&self) -> u32 {
+        if let Ok(lock) = self.inner.lock() { lock.baudrate() } else { 9600 }
+    }
     pub fn new(mode: TicModeEnum) -> Self {
         let boxed: Box<dyn TicMode + Send> = match mode {
             TicModeEnum::Standard => Box::new(standard::StandardTIC::new()),
@@ -73,18 +74,21 @@ pub trait TicMode {
             let state_class = self.get_ha_state_class(&label);
             let unit = self.get_ha_unit(&label);
 
-            let mut payload = json!({
-                "name": format!("TIC {}", safe_label),
-                "state_topic": state_topic,
-                "unique_id": object_id,
-            });
-            if let Some(dc) = device_class { payload["device_class"] = json!(dc); }
-            if let Some(sc) = state_class { payload["state_class"] = json!(sc); }
-            if let Some(u) = unit { payload["unit_of_measurement"] = json!(u); }
-
-            if let Ok(s) = serde_json::to_string(&payload) {
-                msgs.push((config_topic, s));
+            let mut payload = format!(
+                "{{\"name\":\"TIC {}\",\"state_topic\":\"{}\",\"unique_id\":\"{}\"",
+                safe_label, state_topic, object_id
+            );
+            if let Some(dc) = device_class {
+                payload.push_str(&format!(",\"device_class\":\"{}\"", dc));
             }
+            if let Some(sc) = state_class {
+                payload.push_str(&format!(",\"state_class\":\"{}\"", sc));
+            }
+            if let Some(u) = unit {
+                payload.push_str(&format!(",\"unit_of_measurement\":\"{}\"", u));
+            }
+            payload.push_str("}");
+            msgs.push((config_topic, payload));
         }
         msgs
     }
