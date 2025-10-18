@@ -1,6 +1,7 @@
 [package]
 name = "tic2mqtt"
 version = "0.0.0-ci"
+edition = "2024"
 
 [dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "signal", "io-std"] }
