@@ -36,9 +36,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from release tag
+      - name: Extract version from ref
         id: get_version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        run: |
+          # Extract X.Y.Z pattern or use default
+          SHORT_VERSION=$(echo "${GITHUB_REF_NAME}" | grep -oP '\d+\.\d+\.\d+' || echo "0.0.0")
+          # Store both versions
+          echo "version=${SHORT_VERSION}" >> $GITHUB_OUTPUT
+          echo "full_version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
       - name: Lowercase repo name
         run: |
@@ -47,8 +52,7 @@ jobs:
       - name: Determine tags
         id: docker_tags
         run: |
-          BASE_TAG="${{ matrix.version }}"
-          VERSION="${{ steps.get_version.outputs.version }}"
+          VERSION="${{ steps.get_version.outputs.full_version }}"
           if [[ "${{ github.event.action }}" == "released" || "${{ github.event.action }}" == "prereleased" ]]; then
             if [[ "${{ matrix.version }}" == "cpp" ]]; then
               # For C++ version, maintain the original tags for compatibility
@@ -89,7 +93,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_tags.outputs.tags }}
           labels: |
-            org.opencontainers.image.version=${{ steps.get_version.outputs.version }}
+            org.opencontainers.image.version=${{ steps.get_version.outputs.full_version }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.variant=${{ matrix.version }}
