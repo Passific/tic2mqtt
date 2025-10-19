@@ -1,5 +1,5 @@
-use rumqttc::{AsyncClient, MqttOptions, QoS, Incoming};
-use tokio::sync::mpsc::Receiver;
+use paho_mqtt as mqtt;
+use std::sync::mpsc::Receiver;
 use crate::tic::TicModeHandle;
 
 pub struct MqttConfig {
@@ -20,89 +20,82 @@ impl MqttPublisher {
         MqttPublisher { config, rx, mode }
     }
 
-    pub async fn run(&mut self, shutdown: &mut tokio::sync::watch::Receiver<bool>) {
+    pub fn run(&mut self) {
         // Parse server as host:port or tcp://host:port
-        // For simplicity assume tcp://host:port
         let server = self.config.server.trim_start_matches("tcp://");
         let mut parts = server.split(':');
         let host = parts.next().unwrap_or("localhost");
         let port: u16 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(1883);
 
-        let mut mqttoptions = MqttOptions::new(&self.config.client_id, host, port);
-        mqttoptions.set_keep_alive(std::time::Duration::from_secs(5));
-        
+        let create_opts = mqtt::CreateOptionsBuilder::new()
+            .server_uri(format!("tcp://{}:{}", host, port))
+            .client_id(&self.config.client_id)
+            .finalize();
+
+        let cli = mqtt::Client::new(create_opts).expect("Failed to create MQTT client");
+
         // Set credentials if provided
+        let mut conn_opts_builder = mqtt::ConnectOptionsBuilder::new();
         if !self.config.username.is_empty() {
-            mqttoptions.set_credentials(&self.config.username, &self.config.password);
+            conn_opts_builder.user_name(&self.config.username).password(&self.config.password);
         }
+        let conn_opts = conn_opts_builder.keep_alive_interval(std::time::Duration::from_secs(5)).finalize();
+
+        cli.connect(conn_opts).expect("Failed to connect to MQTT broker");
+
+        // Subscribe to HA status
+        cli.subscribe("homeassistant/status", 1).expect("Failed to subscribe");
+
+        // Immediately send discovery messages after connect
+        let disco = self.mode.get_all_discovery_messages();
+        for (topic, payload) in disco {
+            let msg = mqtt::Message::new(topic, payload, 1);
+            if let Err(e) = cli.publish(msg) {
+                eprintln!("[MQTT] discovery publish failed: {}", e);
+            }
+        }
+
+        let rx = cli.start_consuming();
 
         loop {
-            let (client, mut eventloop) = AsyncClient::new(mqttoptions.clone(), 10);
-            // subscribe to HA status
-            if let Err(e) = client.subscribe("homeassistant/status", QoS::AtLeastOnce).await {
-                eprintln!("[MQTT] subscribe failed: {}", e);
-            }
-
-            // Immediately send discovery messages after connect
-            let disco = self.mode.get_all_discovery_messages();
-            for (topic, payload) in disco {
-                if let Err(e) = client.publish(topic, QoS::AtLeastOnce, false, payload).await {
-                    eprintln!("[MQTT] discovery publish failed: {}", e);
-                }
-            }
-
-            // Combined loop: process events and publishes
-            loop {
-                if *shutdown.borrow() { println!("shutdown signalled, breaking mqtt loop"); break; }
-                tokio::select! {
-                    // process mqtt events
-                    event = eventloop.poll() => {
-                        match event {
-                            Ok(notification) => {
-                                if let rumqttc::Event::Incoming(Incoming::Publish(p)) = notification {
-                                    if p.topic == "homeassistant/status" {
-                                        if let Ok(payload) = String::from_utf8(p.payload.to_vec()) {
-                                            if payload == "online" {
-                                                println!("HA online, resending discovery");
-                                                // publish discovery messages
-                                                let msgs = self.mode.get_all_discovery_messages();
-                                                for (topic, payload) in msgs {
-                                                    if let Err(e) = client.publish(topic, QoS::AtLeastOnce, false, payload).await {
-                                                        eprintln!("[MQTT] discovery publish failed: {}", e);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+            // Check for incoming MQTT messages
+            if let Some(msg_opt) = rx.recv_timeout(std::time::Duration::from_millis(100)).ok() {
+                if let Some(msg) = msg_opt {
+                    if msg.topic() == "homeassistant/status" && msg.payload_str() == "online" {
+                        println!("HA online, resending discovery");
+                        let msgs = self.mode.get_all_discovery_messages();
+                        for (topic, payload) in msgs {
+                            let msg = mqtt::Message::new(topic, payload, 1);
+                            if let Err(e) = cli.publish(msg) {
+                                eprintln!("[MQTT] discovery publish failed: {}", e);
                             }
-                            Err(e) => { eprintln!("[MQTT] eventloop error: {}", e); break; }
-                        }
-                    }
-
-                    // process outgoing publishes
-                    maybe = self.rx.recv() => {
-                        match maybe {
-                            Some((label, value)) => {
-                                let meter = self.mode.get_meter_id();
-                                if meter.is_empty() {
-                                    println!("Skipped publish: meter_id not set for label {}", label);
-                                    continue;
-                                }
-                                let topic = self.mode.get_mqtt_topic(&label);
-                                if let Err(e) = client.publish(topic, QoS::AtLeastOnce, false, value).await {
-                                    eprintln!("[MQTT] publish error: {}", e);
-                                    break;
-                                }
-                            }
-                            None => { println!("publisher channel closed"); break; }
                         }
                     }
                 }
             }
 
-            if *shutdown.borrow() { println!("shutdown signalled, exiting mqtt outer loop"); break; }
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            // Process outgoing publishes
+            match self.rx.try_recv() {
+                Ok((label, value)) => {
+                    let meter = self.mode.get_meter_id();
+                    if meter.is_empty() {
+                        println!("Skipped publish: meter_id not set for label {}", label);
+                        continue;
+                    }
+                    let topic = self.mode.get_mqtt_topic(&label);
+                    let msg = mqtt::Message::new(topic, value, 1);
+                    if let Err(e) = cli.publish(msg) {
+                        eprintln!("[MQTT] publish error: {}", e);
+                        break;
+                    }
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => {},
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    println!("publisher channel closed");
+                    break;
+                }
+            }
         }
+        cli.disconnect(None).ok();
     }
 }

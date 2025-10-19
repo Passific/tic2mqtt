@@ -1,4 +1,6 @@
-use tokio::sync::mpsc;
+use std::sync::mpsc;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::thread;
 
 mod mqtt;
 mod serial;
@@ -61,8 +63,7 @@ fn get_env_or(opt: Option<String>, var: &str, default: &str) -> String {
         .unwrap_or_else(|| default.into())
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let opt = parse_args();
 
     // Get configuration from CLI args or environment
@@ -73,18 +74,23 @@ async fn main() {
     let serial_port = get_env_or(opt.serial, "SERIAL_PORT", "/dev/ttyUSB0");
 
     // Channels
-    let (line_tx, mut line_rx) = mpsc::channel::<String>(256);
-    let (publish_tx, publish_rx) = mpsc::channel::<(String, String)>(256);
-    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let (line_tx, line_rx) = mpsc::channel::<String>();
+    let (publish_tx, publish_rx) = mpsc::channel::<(String, String)>();
+    let shutdown = Arc::new(AtomicBool::new(false));
 
     // Initialize TIC mode
-    let tic_mode = TicModeHandle::new(get_tic_mode(opt.mode));
+    let tic_mode = std::sync::Arc::new(TicModeHandle::new(get_tic_mode(opt.mode)));
     let baudrate = tic_mode.baudrate();
 
     // Start serial reader with configured port
-    let mut serial = SerialReader::new(Some(serial_port), line_tx).with_baud(baudrate);
-    let mut serial_shutdown = shutdown_rx.clone();
-    let serial_handle = tokio::spawn(async move { serial.run(&mut serial_shutdown).await });
+    let serial_shutdown = shutdown.clone();
+    let serial_handle = {
+        let _tic_mode = tic_mode.clone();
+        thread::spawn(move || {
+            let mut serial = SerialReader::new(Some(serial_port), line_tx).with_baud(baudrate);
+            serial.run(&serial_shutdown);
+        })
+    };
 
     // Start MQTT publisher with full configuration
     let mqtt_config = mqtt::MqttConfig {
@@ -93,21 +99,22 @@ async fn main() {
         username: mqtt_user,
         password: mqtt_pass,
     };
-    let mut mqtt = MqttPublisher::new(mqtt_config, publish_rx, tic_mode.clone());
-    let mut mqtt_shutdown = shutdown_rx.clone();
-    let mqtt_handle = tokio::spawn(async move { mqtt.run(&mut mqtt_shutdown).await });
+    let mqtt_handle = {
+        let tic_mode = tic_mode.clone();
+        thread::spawn(move || {
+            let mut mqtt = MqttPublisher::new(mqtt_config, publish_rx, (*tic_mode).clone());
+            mqtt.run();
+        })
+    };
 
     // listen for ctrl-c and signal shutdown
-    let shutdown_trigger = shutdown_tx.clone();
-    tokio::spawn(async move {
-        if let Err(e) = tokio::signal::ctrl_c().await {
-            eprintln!("failed to listen for ctrl_c: {}", e);
-        }
-        let _ = shutdown_trigger.send(true);
-    });
+    let shutdown_ctrlc = shutdown.clone();
+    ctrlc::set_handler(move || {
+        shutdown_ctrlc.store(true, Ordering::SeqCst);
+    }).expect("Error setting Ctrl-C handler");
 
     // Main loop: parse lines into label/value and forward
-    while let Some(line) = line_rx.recv().await {
+    while let Ok(line) = line_rx.recv() {
         let line = line.trim().to_string();
         if line.is_empty() {
             continue;
@@ -116,13 +123,16 @@ async fn main() {
         if let Some((label, value)) = utils::parse_label_value(&line) {
             tic_mode.handle_label_value(&label, &value);
             let safe_value = utils::sanitize_value(&value);
-            let _ = publish_tx.send((label.clone(), safe_value)).await;
+            let _ = publish_tx.send((label.clone(), safe_value));
         } else {
             println!("invalid line: {}", line);
+        }
+        if shutdown.load(Ordering::SeqCst) {
+            break;
         }
     }
 
     // wait for tasks to finish
-    let _ = serial_handle.await;
-    let _ = mqtt_handle.await;
+    let _ = serial_handle.join();
+    let _ = mqtt_handle.join();
 }

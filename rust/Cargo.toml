@@ -3,7 +3,12 @@ name = "tic2mqtt"
 version = "0.0.0-ci"
 edition = "2024"
 
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+lto = true
+panic = "abort"
+
 [dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "signal", "io-std"] }
-tokio-serial = "5.4.5"
-rumqttc = "0.18"
+serialport = "4"
+ctrlc = "3"
+paho-mqtt = "0.13"

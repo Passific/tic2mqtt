@@ -1,6 +1,6 @@
-use tokio::io::{AsyncReadExt};
-use tokio_serial::SerialPortBuilderExt;
-use tokio::sync::mpsc::Sender;
+use std::io::{BufRead, BufReader};
+use std::sync::mpsc::Sender;
+use std::time::Duration;
 
 pub struct SerialReader {
     device: Option<String>,
@@ -16,31 +16,29 @@ impl SerialReader {
     pub fn with_baud(mut self, baud: u32) -> Self { self.baudrate = baud; self }
 
     /// Run serial read task. If device is None, fallback to stdin.
-    pub async fn run(&mut self, shutdown: &mut tokio::sync::watch::Receiver<bool>) {
+    pub fn run(&mut self, shutdown: &std::sync::Arc<std::sync::atomic::AtomicBool>) {
         if let Some(dev) = &self.device {
-            // try to open serial port with tokio-serial
+            // try to open serial port with serialport crate
             loop {
-                if *shutdown.borrow() { break; }
-                match tokio_serial::new(dev, self.baudrate)
-                    .data_bits(tokio_serial::DataBits::Seven)
-                    .parity(tokio_serial::Parity::Even)
-                    .stop_bits(tokio_serial::StopBits::One)
-                    .open_native_async()
+                if shutdown.load(std::sync::atomic::Ordering::SeqCst) { break; }
+                match serialport::new(dev, self.baudrate)
+                    .data_bits(serialport::DataBits::Seven)
+                    .parity(serialport::Parity::Even)
+                    .stop_bits(serialport::StopBits::One)
+                    .timeout(Duration::from_secs(5))
+                    .open()
                 {
-                    Ok(mut port) => {
-                        let mut buf = [0u8; 1];
+                    Ok(port) => {
+                        let mut reader = BufReader::new(port);
                         let mut line = String::new();
                         loop {
-                            match port.read_exact(&mut buf).await {
+                            line.clear();
+                            match reader.read_line(&mut line) {
+                                Ok(0) => break, // EOF
                                 Ok(_) => {
-                                    let ch = buf[0] as char;
-                                    if ch == '\n' {
-                                        if !line.is_empty() {
-                                            let _ = self.tx.send(line.clone()).await;
-                                            line.clear();
-                                        }
-                                    } else if ch != '\r' {
-                                        line.push(ch);
+                                    let line = line.trim_end_matches(['\r', '\n'].as_ref()).to_string();
+                                    if !line.is_empty() {
+                                        let _ = self.tx.send(line.clone());
                                     }
                                 }
                                 Err(e) => {
@@ -48,37 +46,30 @@ impl SerialReader {
                                     break;
                                 }
                             }
-                            if *shutdown.borrow() { break; }
+                            if shutdown.load(std::sync::atomic::Ordering::SeqCst) { break; }
                         }
                     }
                     Err(e) => {
                         eprintln!("[Serial] open failed: {}. Retrying in 5s...", e);
-                        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                        std::thread::sleep(Duration::from_secs(5));
                         continue;
                     }
                 }
             }
         } else {
             // stdin fallback
-            let mut stdin = tokio::io::stdin();
-            let mut buf = [0u8; 1024];
+            let stdin = std::io::stdin();
+            let mut reader = stdin.lock();
             let mut acc = String::new();
             loop {
-                if *shutdown.borrow() { break; }
-                match stdin.read(&mut buf).await {
+                if shutdown.load(std::sync::atomic::Ordering::SeqCst) { break; }
+                acc.clear();
+                match reader.read_line(&mut acc) {
                     Ok(0) => break,
-                    Ok(n) => {
-                        for &b in &buf[..n] {
-                            let ch = b as char;
-                            if ch == '\n' {
-                                if !acc.is_empty() {
-                                    let s = acc.clone();
-                                    let _ = self.tx.send(s).await;
-                                    acc.clear();
-                                }
-                            } else if ch != '\r' {
-                                acc.push(ch);
-                            }
+                    Ok(_) => {
+                        let line = acc.trim_end_matches(['\r', '\n'].as_ref()).to_string();
+                        if !line.is_empty() {
+                            let _ = self.tx.send(line);
                         }
                     }
                     Err(_) => break,

@@ -4,7 +4,7 @@ A Rust application to read data from a serial port, extract the data, and export
 
 ## Features
 
-- Serial port reading (using tokio-serial)
+- Serial port reading
 - Data parsing (TIC Standard and Historique modes)
 - MQTT publishing (using rumqttc)
 - Home Assistant MQTT Discovery support
