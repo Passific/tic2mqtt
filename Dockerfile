@@ -7,9 +7,8 @@ FROM alpine AS build
 # Install build tools and dependencies
 RUN apk add --no-cache cmake g++ make git openssl-dev
 
-
 # Install Paho MQTT C (from repo) and build Paho MQTT C++ from source
-RUN apk add --no-cache paho-mqtt-c-dev git cmake g++ make openssl-dev
+RUN apk add --no-cache paho-mqtt-c-dev
 
 # Build and install Paho MQTT C++ in /deps
 WORKDIR /deps

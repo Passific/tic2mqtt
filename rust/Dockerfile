@@ -4,7 +4,7 @@
 FROM rust:1-alpine AS build
 
 # Install build dependencies
-RUN apk add --no-cache musl-dev openssl-dev
+RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static paho-mqtt-c-dev g++ cmake make
 
 # Create a new empty shell project
 WORKDIR /app
@@ -24,7 +24,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/passific/tic2mqtt"
 
 # Install runtime dependencies
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl paho-mqtt-c
 
 # Copy the binary
 COPY --from=build /app/target/release/tic2mqtt /usr/local/bin/
