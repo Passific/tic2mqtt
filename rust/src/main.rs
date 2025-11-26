@@ -134,9 +134,9 @@ fn main() {
                             if !first { payload.push(','); } else { first = false; }
                             payload.push('"');
                             payload.push_str(&k.replace('"', "\\\""));
-                            payload.push_str("": {\"raw\": \"");
+                            payload.push_str("\\\": {\\\"raw\\\": \\\"");
                             payload.push_str(&v.replace('"', "\\\""));
-                            payload.push_str("\"}");
+                            payload.push_str("\\\"}");
                         }
                         payload.push('}');
                         let topic = format!("tic2mqtt/{}", meter_id);
