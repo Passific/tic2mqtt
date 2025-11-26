@@ -51,10 +51,21 @@ pub trait TicMode {
     fn get_meter_id(&self) -> String;
     fn baudrate(&self) -> u32;
 
+    fn get_object_id(&self, label: &str) -> String {
+        let safe_label = sanitize_label(label);
+        format!("{}_{}", MQTT_ID_BASE, safe_label)
+    }
+
     fn get_mqtt_topic(&self, label: &str) -> String {
         let id = self.get_meter_id();
         if id.is_empty() { return String::new(); }
-        format!("{}{}/{}/state", MQTT_TOPIC_BASE, id, sanitize_label(label))
+        format!("{}/{}/{}/state", MQTT_TOPIC_BASE, id, self.get_object_id(label))
+    }
+
+    fn get mqtt_config_topic(&self, label: &str) -> String {
+        let id = self.get_meter_id();
+        if id.is_empty() { return String::new(); }
+        format!("{}/{}/{}/config", MQTT_TOPIC_BASE, id, self.get_object_id(label))
     }
 
     fn get_ha_device_class(&self, _label: &str) -> Option<&'static str> { None }
@@ -67,8 +78,8 @@ pub trait TicMode {
         if meter.is_empty() { return msgs; }
         for label in self.labels() {
             let safe_label = sanitize_label(&label);
-            let object_id = format!("tic2mqtt_{}", safe_label);
-            let config_topic = format!("homeassistant/sensor/{}/config", object_id);
+            let object_id = self.get_object_id(&label);
+            let config_topic = self.get_mqtt_config_topic(&label);
             let state_topic = self.get_mqtt_topic(&label);
             let device_class = self.get_ha_device_class(&label);
             let state_class = self.get_ha_state_class(&label);

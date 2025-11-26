@@ -6,7 +6,8 @@
  * @brief Utility functions for TIC to MQTT bridge (sanitization, env, etc).
  */
 
-constexpr const char* MQTT_TOPIC_BASE = "homeassistant/sensor/tic2mqtt/";
+constexpr const char* MQTT_ID_BASE = "tic2mqtt";
+constexpr const char* MQTT_TOPIC_BASE = "homeassistant/sensor/tic2mqtt";
 
 /**
  * @brief Remove non-ASCII-printable characters from a string.

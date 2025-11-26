@@ -43,13 +43,38 @@ public:
 	virtual void handle_label_value(const std::string&, const std::string&) = 0;
 
 	/**
+	* @brief Construct a unique object ID for a given label, using meter ID.
+	* @param label The label to use in the object ID.
+	* @return Object ID string.
+	*/
+	std::string get_object_id(const std::string& label) const {
+		std::string safe_label = sanitize_label(label);
+		return std::string(MQTT_ID_BASE) + "_" + safe_label;
+	}
+
+	/**
 	* @brief Construct the MQTT topic for a given label, using meter ID.
 	* @param label The label to use in the topic.
 	* @return Topic string, or empty if meter ID is not set.
 	*/
 	virtual std::string get_mqtt_topic(const std::string& label) const {
 		if (!meter_id_.empty()) {
-			return std::string(MQTT_TOPIC_BASE) + meter_id_ + "/" + sanitize_label(label) + "/state";
+			std::string object_id = get_object_id(label);
+			return std::string(MQTT_TOPIC_BASE) + "/" + meter_id_ + "/" + object_id + "/state";
+		} else {
+			return "";
+		}
+	}
+
+	/**
+	* @brief Construct the MQTT config topic for a given label, using meter ID.
+	* @param label The label to use in the topic.
+	* @return Config topic string, or empty if meter ID is not set.
+	*/
+	virtual std::string get_mqtt_config_topic(const std::string& label) const {
+		if (!meter_id_.empty()) {
+			std::string object_id = get_object_id(label);
+			return std::string(MQTT_TOPIC_BASE) + "/" + meter_id_ + "/" + object_id + "/config";
 		} else {
 			return "";
 		}

@@ -5,8 +5,8 @@
 // Helper: generate discovery message (topic, payload) for a label
 std::pair<std::string, std::string> make_discovery_message(const TicMode* mode, const std::string& label) {
 	std::string safe_label = sanitize_label(label);
-	std::string object_id = "tic2mqtt_" + safe_label;
-	std::string config_topic = "homeassistant/sensor/" + object_id + "/config";
+	std::string object_id = mode->get_object_id(label);
+	std::string config_topic = mode->get_mqtt_config_topic(label);
 	std::string state_topic = mode->get_mqtt_topic(label);
 	const char* device_class = mode->get_ha_device_class(label);
 	const char* state_class = mode->get_ha_state_class(label);

@@ -1,4 +1,6 @@
-pub const MQTT_TOPIC_BASE: &str = "homeassistant/sensor/tic2mqtt/";
+
+pub const MQTT_ID_BASE: &str = "tic2mqtt";
+pub const MQTT_TOPIC_BASE: &str = concat!("homeassistant/sensor/", MQTT_ID_BASE);
 
 pub fn sanitize_ascii_printable(val: &str) -> String {
     val.chars().filter(|&c| (c as u32) >= 32 && (c as u32) <= 126).collect()
