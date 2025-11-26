@@ -74,16 +74,10 @@ impl MqttPublisher {
                 }
             }
 
-            // Process outgoing publishes
+            // Process outgoing publishes (now topic is full frame topic, value is JSON)
             match self.rx.try_recv() {
-                Ok((label, value)) => {
-                    let meter = self.mode.get_meter_id();
-                    if meter.is_empty() {
-                        println!("Skipped publish: meter_id not set for label {}", label);
-                        continue;
-                    }
-                    let topic = self.mode.get_mqtt_topic(&label);
-                    let msg = mqtt::Message::new(topic, value, 1);
+                Ok((topic, payload)) => {
+                    let msg = mqtt::Message::new(topic, payload, 1);
                     if let Err(e) = cli.publish(msg) {
                         eprintln!("[MQTT] publish error: {}", e);
                         break;

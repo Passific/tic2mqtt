@@ -114,16 +114,32 @@ fn main() {
     }).expect("Error setting Ctrl-C handler");
 
     // Main loop: parse lines into label/value and forward
+    use serde_json::json;
     while let Ok(line) = line_rx.recv() {
         let line = line.trim().to_string();
         if line.is_empty() {
             continue;
         }
-        // simple label/value split (first whitespace)
         if let Some((label, value)) = utils::parse_label_value(&line) {
+            let is_frame_start = label == "ADCO" || label == "ADSC";
+            if is_frame_start {
+                // On frame start, publish previous frame if any
+                let meter_id = tic_mode.get_meter_id();
+                if !meter_id.is_empty() {
+                    let label_values = tic_mode.get_label_values();
+                    if !label_values.is_empty() {
+                        // Build JSON: { label: { raw: value }, ... }
+                        let mut map = serde_json::Map::new();
+                        for (k, v) in label_values.iter() {
+                            map.insert(k.clone(), json!({"raw": v}));
+                        }
+                        let payload = serde_json::Value::Object(map).to_string();
+                        let topic = format!("tic2mqtt/{}", meter_id);
+                        let _ = publish_tx.send((topic, payload));
+                    }
+                }
+            }
             tic_mode.handle_label_value(&label, &value);
-            let safe_value = utils::sanitize_value(&value);
-            let _ = publish_tx.send((label.clone(), safe_value));
         } else {
             println!("invalid line: {}", line);
         }

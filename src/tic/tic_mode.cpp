@@ -16,6 +16,7 @@ std::pair<std::string, std::string> make_discovery_message(const TicMode* mode, 
 	std::string value_template = "{{ value_json['" + safe_label + "'] | default({}) | attr('raw') | default('') }}";
 	std::string payload = "{";
 	payload += "\"name\": \"TIC " + safe_label + "\",";
+	payload += "\"manufacturer\": \"Tic2MQTT\",";
 	payload += "\"state_topic\": \"" + state_topic + "\",";
 	payload += "\"unique_id\": \"" + object_id + "\",";
 	payload += "\"value_template\": \"" + value_template + "\",";

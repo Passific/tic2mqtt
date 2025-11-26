@@ -1,14 +1,14 @@
 use crate::tic::TicMode;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 pub struct HistoriqueTIC {
     meter_id: String,
+    pub label_values: HashMap<String, String>,
 }
 
 impl HistoriqueTIC {
     pub const BAUDRATE: u32 = 1200;
-    
-    pub fn new() -> Self { HistoriqueTIC { meter_id: String::new() } }
+    pub fn new() -> Self { HistoriqueTIC { meter_id: String::new(), label_values: HashMap::new() } }
 }
 
 impl TicMode for HistoriqueTIC {
@@ -28,8 +28,11 @@ impl TicMode for HistoriqueTIC {
 
     fn handle_label_value(&mut self, label: &str, value: &str) {
         if label == "ADCO" {
+            // Publish previous frame if any (handled in main.rs)
             self.set_meter_id(value);
+            self.label_values.clear();
         }
+        self.label_values.insert(label.to_string(), value.to_string());
     }
 
     fn set_meter_id(&mut self, id: &str) {
