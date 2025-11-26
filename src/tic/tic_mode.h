@@ -1,3 +1,4 @@
+
 #pragma once
 #include "tic_utils.h"
 
@@ -5,13 +6,22 @@
 #include <set>
 #include <vector>
 #include <utility>
+#include <map>
 
 /**
  * @brief Abstract base class for TIC mode implementations (historique/standard).
  *        Provides label set, Home Assistant helpers, and meter ID tracking.
  */
 class TicMode {
+protected:
+	// Map of all current label/value pairs for the current frame
+	std::map<std::string, std::string> label_values_;
 public:
+		/**
+		* @brief Get all current label/value pairs as a map.
+		* @return const reference to the label/value map.
+		*/
+		const std::map<std::string, std::string>& get_label_values() const { return label_values_; }
 	/**
 	* @brief Virtual destructor.
 	*/
@@ -106,6 +116,16 @@ public:
 	* @return Unit string or nullptr if not applicable.
 	*/
 	virtual const char* get_ha_unit(const std::string& label) const { return nullptr; }
+		// Track if a frame is in progress (ADCO/ADSC seen)
+	bool frame_in_progress_ = false;
+
+	/**
+	* @brief Should publish after this label? (default: only if ADCO/ADSC is received)
+	*/
+	virtual bool should_publish_frame(const std::string& label) const {
+		// Only publish when ADCO/ADSC is received (frame start)
+		return (label == "ADCO" || label == "ADSC");
+	}
 protected:
 	std::string meter_id_;
 };

@@ -7,14 +7,18 @@ std::pair<std::string, std::string> make_discovery_message(const TicMode* mode, 
 	std::string safe_label = sanitize_label(label);
 	std::string object_id = mode->get_object_id(label);
 	std::string config_topic = mode->get_mqtt_config_topic(label);
-	std::string state_topic = mode->get_mqtt_topic(label);
+	// New: state_topic is tic2mqtt/<meter_id>
+	std::string state_topic = "tic2mqtt/" + mode->get_meter_id();
 	const char* device_class = mode->get_ha_device_class(label);
 	const char* state_class = mode->get_ha_state_class(label);
 	const char* unit = mode->get_ha_unit(label);
+	// New: value_template for this label
+	std::string value_template = "{{ value_json['" + safe_label + "'] | default({}) | attr('raw') | default('') }}";
 	std::string payload = "{";
 	payload += "\"name\": \"TIC " + safe_label + "\",";
 	payload += "\"state_topic\": \"" + state_topic + "\",";
 	payload += "\"unique_id\": \"" + object_id + "\",";
+	payload += "\"value_template\": \"" + value_template + "\",";
 	if (device_class) payload += "\"device_class\": \"" + std::string(device_class) + "\",";
 	if (state_class) payload += "\"state_class\": \"" + std::string(state_class) + "\",";
 	if (unit) payload += "\"unit_of_measurement\": \"" + std::string(unit) + "\",";

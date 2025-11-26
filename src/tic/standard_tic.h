@@ -64,5 +64,5 @@ public:
 	 * @param label The parsed label.
 	 * @param value The parsed value.
 	 */
-	void handle_label_value(const std::string& label, const std::string& value);
+	void handle_label_value(const std::string& label, const std::string& value) override;
 };

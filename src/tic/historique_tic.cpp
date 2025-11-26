@@ -4,9 +4,17 @@
 
 void HistoriqueTIC::handle_label_value(const std::string& label, const std::string& value) {
 	if (label == "ADCO") {
+		// Publish previous frame if any
+		if (!label_values_.empty()) {
+			frame_in_progress_ = false; // not used anymore, but for clarity
+			// Set a flag or call a callback if needed (handled in main loop)
+		}
 		set_meter_id(sanitize_label(value));
+		label_values_.clear();
+		frame_in_progress_ = true;
 	}
-	// ...existing label handling logic...
+	// Store all label/values
+	label_values_[label] = value;
 }
 
 const char* HistoriqueTIC::get_ha_device_class(const std::string& label) const {

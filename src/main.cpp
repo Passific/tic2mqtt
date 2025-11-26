@@ -66,7 +66,9 @@ int main() {
 			if (parse_label_value(line, label, value)) {
 				// Inform TIC mode of label/value for meter_id tracking
 				mode->handle_label_value(label, value);
-				mqtt.publish_label_value(label, value);
+				if (mode->should_publish_frame(label)) {
+					mqtt.publish_label_value(label, value); // triggers JSON publish
+				}
 			} else {
 				std::cout << "[Main] Invalid line: " << line;
 			}

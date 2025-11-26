@@ -148,30 +148,37 @@ void MqttPublisher::run() {
 
 		std::unique_lock<std::mutex> lock(queue_mutex_);
 		cv_.wait_for(lock, std::chrono::milliseconds(100), [this] { return !message_queue_.empty() || !running_; });
+		bool should_publish = false;
 		while (!message_queue_.empty()) {
-			std::pair<std::string, std::string> label_value = message_queue_.front();
-			std::string label = label_value.first;
-			std::string value = label_value.second;
+			// Just pop all label/value pairs, we only care about the latest state
 			message_queue_.pop();
-			lock.unlock();
+			should_publish = true;
+		}
+		lock.unlock();
 
-			// Only publish if meter_id is set (non-empty)
-			if (!mode_.get_meter_id().empty()) {
-				std::string topic = mode_.get_mqtt_topic(label);
-				std::string payload = value;
-				try {
-					mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
-					pubmsg->set_qos(1);
-					mqtt_client_->publish(pubmsg)->wait();
-					std::cout << "[MQTT] Published: " << topic << " = " << value << std::endl;
-				} catch (const mqtt::exception& exc) {
-					std::cerr << "[MQTT] Publish failed: " << exc.what() << std::endl;
-				}
-			} else {
-				std::cout << "[MQTT] Skipped publish: meter_id not set for label " << label << std::endl;
+		// Only publish if meter_id is set (non-empty) and we received at least one label
+		if (should_publish && !mode_.get_meter_id().empty()) {
+			// Build JSON object from all label/values
+			const auto& label_values = mode_.get_label_values();
+			std::ostringstream oss;
+			oss << "{";
+			bool first = true;
+			for (const auto& kv : label_values) {
+				if (!first) oss << ",";
+				first = false;
+				oss << "\"" << sanitize_label(kv.first) << "\": {\"raw\": \"" << sanitize_value(kv.second) << "\"}";
 			}
-
-			lock.lock();
+			oss << "}";
+			std::string topic = std::string("tic2mqtt/") + mode_.get_meter_id();
+			std::string payload = oss.str();
+			try {
+				mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
+				pubmsg->set_qos(1);
+				mqtt_client_->publish(pubmsg)->wait();
+				std::cout << "[MQTT] Published: " << topic << " = " << payload << std::endl;
+			} catch (const mqtt::exception& exc) {
+				std::cerr << "[MQTT] Publish failed: " << exc.what() << std::endl;
+			}
 		}
 	}
 
