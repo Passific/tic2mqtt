@@ -55,6 +55,7 @@ impl TicModeHandle {
 }
 
 pub trait TicMode {
+    fn as_any(&self) -> &dyn std::any::Any;
     fn labels(&self) -> Vec<String> { Vec::new() }
     fn handle_label_value(&mut self, _label: &str, _value: &str);
     fn set_meter_id(&mut self, id: &str);

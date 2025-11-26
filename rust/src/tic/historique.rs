@@ -1,3 +1,4 @@
+use std::any::Any;
 use crate::tic::TicMode;
 use std::collections::{HashSet, HashMap};
 
@@ -12,6 +13,7 @@ impl HistoriqueTIC {
 }
 
 impl TicMode for HistoriqueTIC {
+    fn as_any(&self) -> &dyn Any { self }
     fn baudrate(&self) -> u32 {
         Self::BAUDRATE
     }

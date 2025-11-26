@@ -114,7 +114,6 @@ fn main() {
     }).expect("Error setting Ctrl-C handler");
 
     // Main loop: parse lines into label/value and forward
-    use serde_json::json;
     while let Ok(line) = line_rx.recv() {
         let line = line.trim().to_string();
         if line.is_empty() {
@@ -128,12 +127,18 @@ fn main() {
                 if !meter_id.is_empty() {
                     let label_values = tic_mode.get_label_values();
                     if !label_values.is_empty() {
-                        // Build JSON: { label: { raw: value }, ... }
-                        let mut map = serde_json::Map::new();
+                        // Manually build JSON: { "LABEL": { "raw": "value" }, ... }
+                        let mut payload = String::from("{");
+                        let mut first = true;
                         for (k, v) in label_values.iter() {
-                            map.insert(k.clone(), json!({"raw": v}));
+                            if !first { payload.push(','); } else { first = false; }
+                            payload.push('"');
+                            payload.push_str(&k.replace('"', "\\\""));
+                            payload.push_str("": {\"raw\": \"");
+                            payload.push_str(&v.replace('"', "\\\""));
+                            payload.push_str("\"}");
                         }
-                        let payload = serde_json::Value::Object(map).to_string();
+                        payload.push('}');
                         let topic = format!("tic2mqtt/{}", meter_id);
                         let _ = publish_tx.send((topic, payload));
                     }
