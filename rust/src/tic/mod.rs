@@ -62,7 +62,7 @@ pub trait TicMode {
         format!("{}/{}/{}/state", MQTT_TOPIC_BASE, id, self.get_object_id(label))
     }
 
-    fn get mqtt_config_topic(&self, label: &str) -> String {
+    fn get_mqtt_config_topic(&self, label: &str) -> String {
         let id = self.get_meter_id();
         if id.is_empty() { return String::new(); }
         format!("{}/{}/{}/config", MQTT_TOPIC_BASE, id, self.get_object_id(label))
