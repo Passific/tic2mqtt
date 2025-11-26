@@ -107,12 +107,15 @@ void MqttPublisher::run() {
 		connOpts.set_user_name(user_);
 		connOpts.set_password(pass_);
 	}
+
 	while (running_) {
 		try {
 			auto tok = mqtt_client_->connect(connOpts);
 			tok->wait();
 			connected_ = true;
 			std::cout << "[MQTT] Connected to broker: " << server_ << std::endl;
+			// Publish Home Assistant discovery/config topics at startup
+			resend_discovery();
 			break;
 		} catch (const mqtt::exception& exc) {
 			std::cerr << "[MQTT] Connection failed: " << exc.what() << ". Retrying in 5s..." << std::endl;
