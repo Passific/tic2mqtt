@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use crate::utils::{MQTT_TOPIC_BASE, sanitize_label};
+use crate::utils::{MQTT_ID_BASE, MQTT_TOPIC_BASE, sanitize_label};
 
 pub mod standard;
 pub mod historique;
