@@ -146,7 +146,11 @@ void MqttPublisher::run() {
 			for (const auto& kv : label_values) {
 				if (!first) oss << ",";
 				first = false;
-				oss << "\"" << sanitize_label(kv.first) << "\": {\"raw\": \"" << sanitize_value(kv.second) << "\"}";
+				oss << "\"" << sanitize_label(kv.first) << "\": {\"raw\": \"" << sanitize_value(kv.second.value) << "\"";
+				if (!kv.second.timestamp.empty()) {
+					oss << ", \"timestamp\": \"" << kv.second.timestamp << "\"";
+				}
+				oss << "}";
 			}
 			oss << "}";
 			std::string topic = std::string("tic2mqtt/") + mode_.get_meter_id();
