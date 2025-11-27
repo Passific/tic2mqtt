@@ -46,8 +46,12 @@ impl MqttPublisher {
         // Immediately send discovery messages after connect, with retain flag
         let disco = self.mode.get_all_discovery_messages();
         for (topic, payload) in disco {
-            let mut msg = mqtt::Message::new(topic, payload, 1);
-            msg.set_retained(true);
+            let msg = mqtt::MessageBuilder::new()
+                .topic(topic)
+                .payload(payload)
+                .qos(1)
+                .retained(true)
+                .finalize();
             if let Err(e) = cli.publish(msg) {
                 eprintln!("[MQTT] discovery publish failed: {}", e);
             }
