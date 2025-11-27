@@ -1,3 +1,8 @@
+#[derive(Clone, Debug, Default)]
+pub struct LabelValue {
+    pub value: String,
+    pub timestamp: Option<String>, // ISO 8601 format, e.g. "2025-11-27T02:01:00.000Z"
+}
 use std::sync::{Arc, Mutex};
 use crate::utils::{MQTT_ID_BASE, MQTT_TOPIC_BASE, sanitize_label};
 
@@ -55,6 +60,8 @@ impl TicModeHandle {
 }
 
 pub trait TicMode {
+    /// Return the mode name ("historique" or "standard")
+    fn get_mode_name(&self) -> &'static str;
     fn as_any(&self) -> &dyn std::any::Any;
     fn labels(&self) -> Vec<String> { Vec::new() }
     fn handle_label_value(&mut self, _label: &str, _value: &str);
@@ -80,7 +87,7 @@ pub trait TicMode {
     fn get_all_discovery_messages(&self) -> Vec<(String, String)> {
         let mut msgs = Vec::new();
         let meter = self.get_meter_id();
-        if meter.is_empty() { return msgs; }    
+        if meter.is_empty() { return msgs; }
         for label in self.labels() {
             let safe_label = sanitize_label(&label);
             let object_id = self.get_object_id(&label);
@@ -96,10 +103,10 @@ pub trait TicMode {
                 "{{\"name\":\"TIC {}\",\"state_topic\":\"{}\",\"unique_id\":\"{}\",\"value_template\":\"{}\"",
                 safe_label, state_topic, object_id, value_template
             );
-            // Device block as requested
+            // Device block
             payload.push_str(&format!(
-                ",\"device\":{{\"identifiers\":[\"{}\"],\"manufacturer\":\"Enedis\",\"model\":\"tic2mqtt_{}\",\"name\":\"tic2mqtt {}\"}}",
-                object_id, object_id, object_id
+                ",\"device\":{{\"identifiers\":[\"tic2mqtt_{}\"],\"manufacturer\":\"Enedis\",\"model\":\"TIC {} {}\",\"name\":\"Télé-information client {} {}\"}}",
+                object_id, object_id, self.get_mode_name(), object_id, self.get_mode_name()
             ));
             if let Some(dc) = device_class {
                 payload.push_str(&format!(",\"device_class\":\"{}\"", dc));

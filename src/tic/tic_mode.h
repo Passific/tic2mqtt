@@ -14,14 +14,28 @@
  */
 class TicMode {
 protected:
+
+	// Struct to hold value and optional timestamp
+	struct LabelValue {
+		std::string value;
+		std::string timestamp; // ISO 8601 format, empty if not set
+	};
+
 	// Map of all current label/value pairs for the current frame
-	std::map<std::string, std::string> label_values_;
+	std::map<std::string, LabelValue> label_values_;
+
 public:
-		/**
-		* @brief Get all current label/value pairs as a map.
-		* @return const reference to the label/value map.
-		*/
-		const std::map<std::string, std::string>& get_label_values() const { return label_values_; }
+	/**
+	 * @brief Get the mode name ("historique" or "standard").
+	 */
+	virtual const char* get_mode_name() const = 0;
+
+	/**
+	* @brief Get all current label/value pairs as a map.
+	* @return const reference to the label/value map.
+	*/
+	const std::map<std::string, LabelValue>& get_label_values() const { return label_values_; }
+
 	/**
 	* @brief Virtual destructor.
 	*/
@@ -112,6 +126,7 @@ public:
 		// Only publish when ADCO/ADSC is received (frame start)
 		return (label == "ADCO" || label == "ADSC");
 	}
+
 protected:
 	std::string meter_id_;
 };

@@ -1,17 +1,20 @@
 #pragma once
+
+#include "tic_mode.h"
+
 #include <set>
 #include <string>
 
 namespace mqtt {
 	class async_client;
 }
-#include "tic_mode.h"
 
 /**
  * @brief HistoriqueTIC implements TIC mode for "historique" teleinfo frames.
  *        Provides label set, Home Assistant helpers, and meter ID tracking.
  */
 class HistoriqueTIC : public TicMode {
+	const char* get_mode_name() const override { return "historique"; }
 public:
 	/**
 	 * @brief Get the Home Assistant device class for a label (Historique TIC).

@@ -2,9 +2,10 @@ use std::any::Any;
 use crate::tic::TicMode;
 use std::collections::{HashSet, HashMap};
 
+use crate::tic::LabelValue;
 pub struct StandardTIC {
     meter_id: String,
-    pub label_values: HashMap<String, String>,
+    pub label_values: HashMap<String, LabelValue>,
 }
 
 impl StandardTIC {
@@ -13,6 +14,7 @@ impl StandardTIC {
 }
 
 impl TicMode for StandardTIC {
+    fn get_mode_name(&self) -> &'static str { "standard" }
     fn as_any(&self) -> &dyn Any { self }
     fn baudrate(&self) -> u32 {
         Self::BAUDRATE
@@ -38,7 +40,7 @@ impl TicMode for StandardTIC {
             self.set_meter_id(value);
             self.label_values.clear();
         }
-        self.label_values.insert(label.to_string(), value.to_string());
+        self.label_values.insert(label.to_string(), LabelValue { value: value.to_string(), timestamp: None });
     }
 
     fn set_meter_id(&mut self, id: &str) {

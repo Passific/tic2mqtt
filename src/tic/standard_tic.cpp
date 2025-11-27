@@ -13,8 +13,8 @@ void StandardTIC::handle_label_value(const std::string& label, const std::string
 		label_values_.clear();
 		frame_in_progress_ = true;
 	}
-	// Store all label/values
-	label_values_[label] = value;
+	// Store all label/values with empty timestamp for now
+	label_values_[label] = LabelValue{value, ""};
 }
 
 const char* StandardTIC::get_ha_device_class(const std::string& label) const {

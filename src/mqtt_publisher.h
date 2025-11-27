@@ -1,4 +1,5 @@
 #pragma once
+#include "tic_mode.h"
 #include <string>
 #include <thread>
 #include <queue>
@@ -6,7 +7,6 @@
 #include <condition_variable>
 #include <set>
 #include <map>
-#include "tic_mode.h"
 
 namespace mqtt {
 	class async_client;

@@ -1,8 +1,9 @@
 #pragma once
-#include <set>
-#include <string>
 
 #include "tic_mode.h"
+
+#include <set>
+#include <string>
 
 namespace mqtt {
 	class async_client;
@@ -13,6 +14,7 @@ namespace mqtt {
  *        Provides label set, Home Assistant helpers, and meter ID tracking.
  */
 class StandardTIC : public TicMode {
+	const char* get_mode_name() const override { return "standard"; }
 public:
 	/**
 	 * @brief Get the Home Assistant device class for a label (Standard TIC).
