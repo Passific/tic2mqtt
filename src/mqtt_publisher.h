@@ -52,7 +52,7 @@ public:
 	/**
 	 * @brief Republish Home Assistant discovery messages for all known labels.
 	 */
-	void resend_discovery();
+	void send_discovery();
 private:
 	/**
 	 * @brief Main thread loop for MQTT publishing and connection management.

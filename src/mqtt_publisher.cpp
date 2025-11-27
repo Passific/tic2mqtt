@@ -72,7 +72,7 @@ void MqttPublisher::publish_label_value(const std::string& label, const std::str
 /**
  * @brief Republish Home Assistant discovery messages for all known labels.
  */
-void MqttPublisher::resend_discovery() {
+void MqttPublisher::send_discovery() {
 	// Republish Home Assistant discovery messages for all known labels
 	if (!connected_ || !mqtt_client_) {
 		std::cerr << "[MQTT] Not connected, cannot resend discovery." << std::endl;
@@ -85,8 +85,9 @@ void MqttPublisher::resend_discovery() {
 		try {
 			mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
 			pubmsg->set_qos(1);
+			pubmsg->set_retained(true);
 			mqtt_client_->publish(pubmsg)->wait();
-			std::cout << "[MQTT] Discovery republished: " << topic << std::endl;
+			std::cout << "[MQTT] Discovery published (retained): " << topic << std::endl;
 		} catch (const mqtt::exception& exc) {
 			std::cerr << "[MQTT] Discovery publish failed: " << exc.what() << std::endl;
 		}
@@ -115,7 +116,7 @@ void MqttPublisher::run() {
 			connected_ = true;
 			std::cout << "[MQTT] Connected to broker: " << server_ << std::endl;
 			// Publish Home Assistant discovery/config topics at startup
-			resend_discovery();
+			send_discovery();
 			break;
 		} catch (const mqtt::exception& exc) {
 			std::cerr << "[MQTT] Connection failed: " << exc.what() << ". Retrying in 5s..." << std::endl;
@@ -124,28 +125,7 @@ void MqttPublisher::run() {
 	}
 	if (!connected_) return;
 
-	// Subscribe to Home Assistant status topic
-	const std::string ha_status_topic = "homeassistant/status";
-	try {
-		mqtt_client_->start_consuming();
-		mqtt_client_->subscribe(ha_status_topic, 1)->wait();
-		std::cout << "[MQTT] Subscribed to HA status topic: " << ha_status_topic << std::endl;
-	} catch (const mqtt::exception& exc) {
-		std::cerr << "[MQTT] Failed to subscribe to HA status: " << exc.what() << std::endl;
-	}
-
-
 	while (running_) {
-		// Check for HA status messages
-		mqtt::const_message_ptr msg = mqtt_client_->try_consume_message_for(std::chrono::milliseconds(10));
-		if (msg && msg->get_topic() == ha_status_topic) {
-			std::string payload = msg->to_string();
-			if (payload == "online") {
-				std::cout << "[MQTT] HA status is online, resending discovery." << std::endl;
-				resend_discovery();
-			}
-		}
-
 		std::unique_lock<std::mutex> lock(queue_mutex_);
 		cv_.wait_for(lock, std::chrono::milliseconds(100), [this] { return !message_queue_.empty() || !running_; });
 		bool should_publish = false;

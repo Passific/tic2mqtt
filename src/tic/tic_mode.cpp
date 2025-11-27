@@ -16,10 +16,14 @@ std::pair<std::string, std::string> make_discovery_message(const TicMode* mode, 
 	std::string value_template = "{{ value_json['" + safe_label + "'] | default({}) | attr('raw') | default('') }}";
 	std::string payload = "{";
 	payload += "\"name\": \"TIC " + safe_label + "\",";
-	payload += "\"manufacturer\": \"Tic2MQTT\",";
 	payload += "\"state_topic\": \"" + state_topic + "\",";
 	payload += "\"unique_id\": \"" + object_id + "\",";
 	payload += "\"value_template\": \"" + value_template + "\",";
+	payload += "\"device\": {";
+	payload += "\"identifiers\": [\"" + object_id + "\"],";
+	payload += "\"manufacturer\": \"Enedis\",";
+	payload += "\"model\": \"tic2mqtt_" + object_id + "\",";
+	payload += "\"name\": \"tic2mqtt " + object_id + "\"},";
 	if (device_class) payload += "\"device_class\": \"" + std::string(device_class) + "\",";
 	if (state_class) payload += "\"state_class\": \"" + std::string(state_class) + "\",";
 	if (unit) payload += "\"unit_of_measurement\": \"" + std::string(unit) + "\",";

@@ -93,9 +93,14 @@ pub trait TicMode {
             let value_template = format!("{{{{ value_json['{}'] | default({{}}) | attr('raw') | default('') }}}}", safe_label);
 
             let mut payload = format!(
-                "{{\"name\":\"TIC {}\",\"manufacturer\":\"Tic2MQTT\",\"state_topic\":\"{}\",\"unique_id\":\"{}\",\"value_template\":\"{}\"",
+                "{{\"name\":\"TIC {}\",\"state_topic\":\"{}\",\"unique_id\":\"{}\",\"value_template\":\"{}\"",
                 safe_label, state_topic, object_id, value_template
             );
+            // Device block as requested
+            payload.push_str(&format!(
+                ",\"device\":{{\"identifiers\":[\"{}\"],\"manufacturer\":\"Enedis\",\"model\":\"tic2mqtt_{}\",\"name\":\"tic2mqtt {}\"}}",
+                object_id, object_id, object_id
+            ));
             if let Some(dc) = device_class {
                 payload.push_str(&format!(",\"device_class\":\"{}\"", dc));
             }

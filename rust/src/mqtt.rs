@@ -43,37 +43,17 @@ impl MqttPublisher {
 
         cli.connect(conn_opts).expect("Failed to connect to MQTT broker");
 
-        // Subscribe to HA status
-        cli.subscribe("homeassistant/status", 1).expect("Failed to subscribe");
-
-        // Immediately send discovery messages after connect
+        // Immediately send discovery messages after connect, with retain flag
         let disco = self.mode.get_all_discovery_messages();
         for (topic, payload) in disco {
-            let msg = mqtt::Message::new(topic, payload, 1);
+            let mut msg = mqtt::Message::new(topic, payload, 1);
+            msg.set_retained(true);
             if let Err(e) = cli.publish(msg) {
                 eprintln!("[MQTT] discovery publish failed: {}", e);
             }
         }
 
-        let rx = cli.start_consuming();
-
         loop {
-            // Check for incoming MQTT messages
-            if let Some(msg_opt) = rx.recv_timeout(std::time::Duration::from_millis(100)).ok() {
-                if let Some(msg) = msg_opt {
-                    if msg.topic() == "homeassistant/status" && msg.payload_str() == "online" {
-                        println!("HA online, resending discovery");
-                        let msgs = self.mode.get_all_discovery_messages();
-                        for (topic, payload) in msgs {
-                            let msg = mqtt::Message::new(topic, payload, 1);
-                            if let Err(e) = cli.publish(msg) {
-                                eprintln!("[MQTT] discovery publish failed: {}", e);
-                            }
-                        }
-                    }
-                }
-            }
-
             // Process outgoing publishes (now topic is full frame topic, value is JSON)
             match self.rx.try_recv() {
                 Ok((topic, payload)) => {
