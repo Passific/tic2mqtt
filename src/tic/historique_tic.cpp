@@ -10,11 +10,17 @@ void HistoriqueTIC::handle_label_value(const std::string& label, const std::stri
 			// Set a flag or call a callback if needed (handled in main loop)
 		}
 		set_meter_id(sanitize_label(value));
-		label_values_.clear();
+		// Do not clear label_values_, just update values in place
 		frame_in_progress_ = true;
 	}
-	// Store all label/values with empty timestamp for now
-	label_values_[label] = LabelValue{value, ""};
+	// Update value/timestamp in place to limit dynamic allocation
+	auto it = label_values_.find(label);
+	if (it != label_values_.end()) {
+		it->second.value = value;
+		// Optionally update timestamp here if needed
+	} else {
+		label_values_[label] = LabelValue{value, ""};
+	}
 }
 
 const char* HistoriqueTIC::get_ha_device_class(const std::string& label) const {

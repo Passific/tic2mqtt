@@ -34,9 +34,18 @@ impl TicMode for HistoriqueTIC {
         if label == "ADCO" {
             // Publish previous frame if any (handled in main.rs)
             self.set_meter_id(value);
-            self.label_values.clear();
+            // Do not clear label_values, just update values in place
         }
-        self.label_values.insert(label.to_string(), LabelValue { value: value.to_string(), timestamp: None });
+        use std::collections::hash_map::Entry;
+        match self.label_values.entry(label.to_string()) {
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().value = value.to_string();
+                // Optionally update timestamp here if needed
+            },
+            Entry::Vacant(entry) => {
+                entry.insert(LabelValue { value: value.to_string(), timestamp: None });
+            }
+        }
     }
 
     fn set_meter_id(&mut self, id: &str) {
